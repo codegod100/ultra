@@ -87,7 +87,7 @@ Browser test: `pixi run install-playwright` once, then `pixi run test`. It rebui
 **Elements:** `el(tag)`, `end()`, `text(s)`, `num(i)`, `fnum(x, digits)`, `text_ref(h)`.
 Shorthands: `div(cls)`, `span(cls)`, `h1(s)`, `button(label, msg, arg)`, `label_num(s, i)`.
 
-**Attributes:** `attr(name, value)`, `attr_num(name, i)`, `cls(name)`, `cls_if(name, cond)`, `key(i)`, `value_ref(h)`, `checked(cond)`, `autofocus()`.
+**Attributes:** `attr(name, value)`, `attr_num(name, i)`, `attr_ref(name, h)`, `cls(name)`, `cls_if(name, cond)`, `key(i)`, `value_ref(h)`, `checked(cond)`, `autofocus()`.
 
 **Events:** `on_click(msg, arg)`, `on_dblclick(msg, arg)`, `on_enter(msg, arg)`, `on_input(msg)` (sends `update(msg, EVENT)`, with the input's text in string handle `0`).
 
@@ -97,7 +97,11 @@ Shorthands: `div(cls)`, `span(cls)`, `h1(s)`, `button(label, msg, arg)`, `label_
 
 **Keyed lists:** call `key(id)` on each child. The diff skips the common prefix and suffix, then moves only the nodes outside the longest increasing subsequence, so swapping two rows of 1,000 moves two DOM nodes. Replacing or clearing a whole list is a single `textContent` reset.
 
-**Strings:** `s_new()`, `s_dup(h)`, `s_copy(dst, src)`, `s_clear(h)`, `s_free(h)`, `s_len(h)` (trimmed length).
+**Strings:** `s_new()`, `s_dup(h)`, `s_copy(dst, src)`, `s_clear(h)`, `s_free(h)`, `s_len(h)` (trimmed length). Build strings at runtime with `s_set(h, "lit")`, `s_add(h, "lit")`, `s_add_ref(h, src)`, `s_add_num(h, i)`; compare with `s_eq(a, b)` and `s_has(h, needle)` (case-insensitive substring).
+
+**HTTP + JSON:** `http_get(url, MSG)` / `http_get_ref(h, MSG)` start a GET and return a JSON handle at once; when the response arrives the runtime calls `update(MSG, handle)`. Check `j_ok(doc)` (or `j_err(doc, h)` for the message), then read by dotted path, with numbers indexing arrays: `j_str(doc, "repos.0.did", h)`, `j_int`, `j_len`, `j_has`. `j_at(doc, path)` and `j_idx(arr, i)` return handles for sub-values (free them with `j_free`), and `j_key(obj, i, h)` reads object keys.
+
+**Your own imports:** declare more `@jscall` functions in your app and pass them to `mount("#app", "./app.wasm", { imports: (ctx) => ({ ... }) })`. `ctx` has `str` (decode an LPython string pointer), `strs` (the string store), `vals` (the JSON store), `text(s)` (emit a text node) and `dispatch(msg, arg)`.
 
 **Storage:** `store_i32(name, v)`, `load_i32(name, default)`, `s_save(name, h)`, `s_load(name, h)`, plus `_at(name, i, ...)` variants for arrays.
 

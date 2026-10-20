@@ -56,6 +56,11 @@ def attr_num(name: str, value: i32) -> None:
     pass
 
 @jscall
+def attr_ref(name: str, h: i32) -> None:
+    """Attribute whose value is a runtime string (e.g. an href built with s_add)."""
+    pass
+
+@jscall
 def cls(name: str) -> None:
     """Add a CSS class. May be called several times."""
     pass
@@ -154,6 +159,33 @@ def s_len(h: i32) -> i32:
     """Length after trimming whitespace."""
     pass
 
+# Building strings at runtime: s_set(h, "lit"), then s_add / s_add_ref / s_add_num.
+
+@jscall
+def s_set(h: i32, s: str) -> None:
+    pass
+
+@jscall
+def s_add(h: i32, s: str) -> None:
+    pass
+
+@jscall
+def s_add_ref(h: i32, src: i32) -> None:
+    pass
+
+@jscall
+def s_add_num(h: i32, x: i32) -> None:
+    pass
+
+@jscall
+def s_eq(a: i32, b: i32) -> i32:
+    pass
+
+@jscall
+def s_has(h: i32, needle: i32) -> i32:
+    """1 if h contains needle (trimmed, case-insensitive). Empty needle matches."""
+    pass
+
 @jscall
 def s_save(name: str, h: i32) -> None:
     """Persist a string handle in localStorage."""
@@ -188,6 +220,68 @@ def store_i32_at(name: str, i: i32, v: i32) -> None:
 
 @jscall
 def load_i32_at(name: str, i: i32, default: i32) -> i32:
+    pass
+
+# ---------------------------------------------------------------- http + json
+#
+# http_get(url, MSG) starts a GET and returns a JSON handle at once; when the
+# response arrives the runtime calls update(MSG, handle). Check j_ok(handle)
+# first (j_err writes the error text into a string handle). Read values by
+# dotted path, where array indices are numbers: j_str(doc, "repos.0.did", h).
+# j_at / j_idx return new handles for sub-values; free handles with j_free.
+
+@jscall
+def http_get(url: str, msg: i32) -> i32:
+    pass
+
+@jscall
+def http_get_ref(url: i32, msg: i32) -> i32:
+    """http_get with the URL in a string handle."""
+    pass
+
+@jscall
+def j_ok(h: i32) -> i32:
+    pass
+
+@jscall
+def j_err(h: i32, dst: i32) -> None:
+    pass
+
+@jscall
+def j_at(h: i32, path: str) -> i32:
+    """Handle for the value at path, or 0 if missing."""
+    pass
+
+@jscall
+def j_idx(h: i32, i: i32) -> i32:
+    """Handle for element i of an array, or 0."""
+    pass
+
+@jscall
+def j_has(h: i32, path: str) -> i32:
+    pass
+
+@jscall
+def j_len(h: i32, path: str) -> i32:
+    """Length of the array/string, or key count of the object, at path."""
+    pass
+
+@jscall
+def j_int(h: i32, path: str) -> i32:
+    pass
+
+@jscall
+def j_str(h: i32, path: str, dst: i32) -> i32:
+    """Write the value at path into string handle dst (non-strings as JSON). 1 if found."""
+    pass
+
+@jscall
+def j_key(h: i32, i: i32, dst: i32) -> None:
+    """Write the i-th key of an object into dst."""
+    pass
+
+@jscall
+def j_free(h: i32) -> None:
     pass
 
 # ---------------------------------------------------------------- shorthands

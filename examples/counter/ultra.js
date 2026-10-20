@@ -71,6 +71,36 @@ export async function mount(root, url, opts = {}) {
     schedule();
   };
 
+  // ------------------------------------------------------------ json store
+  // Decoded JSON values live here too; LPython holds i32 handles and reads
+  // fields by dotted path ("repos.3.did"). Handle 0 is "nothing".
+  const vals = [undefined];
+  const vfree = [];
+  const vNew = (v) => {
+    if (v === undefined) return 0;
+    if (vfree.length) { const h = vfree.pop(); vals[h] = v; return h; }
+    vals.push(v); return vals.length - 1;
+  };
+  const walk = (h, p) => {
+    let v = vals[h];
+    const path = str(p);
+    if (path) for (const k of path.split(".")) { if (v == null) return undefined; v = v[k]; }
+    return v;
+  };
+  const asText = (v) => (typeof v === "string" ? v : JSON.stringify(v, null, 2));
+  const httpGet = (url, msg) => {
+    const h = vNew(null);
+    fetch(url, { headers: { accept: "application/json" } })
+      .then(async (r) => {
+        const body = await r.json().catch(() => null);
+        vals[h] = r.ok ? body
+          : { __error: (body && (body.message || body.error)) || "HTTP " + r.status };
+      })
+      .catch((e) => { vals[h] = { __error: String(e.message || e) }; })
+      .then(() => dispatch(msg, h));
+    return h;
+  };
+
   const js = {
     el: (p) => { const v = node(str(p)); push(v); stack.push(cur); cur = v; },
     end: () => { cur = stack.pop(); },
@@ -81,6 +111,7 @@ export async function mount(root, url, opts = {}) {
 
     attr: (k, v) => setA(str(k), str(v)),
     attr_num: (k, v) => setA(str(k), String(v)),
+    attr_ref: (k, h) => setA(str(k), strs[h] ?? ""),
     cls: (p) => { const c = str(p); if (c) cur.cls = cur.cls ? cur.cls + " " + c : c; },
     cls_if: (p, on) => { if (on) js.cls(p); },
     key: (k) => { cur.k = k; },
@@ -104,6 +135,12 @@ export async function mount(root, url, opts = {}) {
     s_clear: (h) => { strs[h] = ""; },
     s_free: (h) => { if (h > 0) { strs[h] = ""; free.push(h); } },
     s_len: (h) => (strs[h] ?? "").trim().length,
+    s_set: (h, p) => { strs[h] = str(p); },
+    s_add: (h, p) => { strs[h] += str(p); },
+    s_add_ref: (h, s) => { strs[h] += strs[s] ?? ""; },
+    s_add_num: (h, x) => { strs[h] += String(x); },
+    s_eq: (a, b) => (strs[a] === strs[b] ? 1 : 0),
+    s_has: (h, n) => ((strs[h] ?? "").toLowerCase().includes((strs[n] ?? "").trim().toLowerCase()) ? 1 : 0),
     s_save: (k, h) => { try { localStorage.setItem(K(k), strs[h]); } catch {} },
     s_load: (k, h) => {
       let v = null;
@@ -117,7 +154,26 @@ export async function mount(root, url, opts = {}) {
       try { v = localStorage.getItem(K(k)); } catch {}
       return v === null ? d : v | 0;
     },
+
+    http_get: (p, m) => httpGet(str(p), m),
+    http_get_ref: (h, m) => httpGet(strs[h], m),
+    j_ok: (h) => (vals[h] != null && !(typeof vals[h] === "object" && "__error" in vals[h]) ? 1 : 0),
+    j_err: (h, d) => { const v = vals[h]; strs[d] = v && v.__error ? v.__error : v == null ? "no response" : ""; },
+    j_at: (h, p) => vNew(walk(h, p)),
+    j_idx: (h, i) => vNew((vals[h] ?? [])[i]),
+    j_has: (h, p) => (walk(h, p) != null ? 1 : 0),
+    j_len: (h, p) => {
+      const v = walk(h, p);
+      return Array.isArray(v) || typeof v === "string" ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0;
+    },
+    j_int: (h, p) => { const v = walk(h, p); return typeof v === "boolean" ? +v : Number(v) | 0; },
+    j_str: (h, p, d) => { const v = walk(h, p); strs[d] = v == null ? "" : asText(v); return v == null ? 0 : 1; },
+    j_key: (h, i, d) => { strs[d] = Object.keys(vals[h] ?? {})[i] ?? ""; },
+    j_free: (h) => { if (h > 0) { vals[h] = undefined; vfree.push(h); } },
   };
+
+  // Apps can declare their own @jscall imports and supply them here.
+  if (opts.imports) Object.assign(js, opts.imports({ str, strs, vals, sNew, dispatch, text: txt }));
 
   for (const f of ["s_save", "s_load", "store_i32", "load_i32"]) {
     const base = js[f];
@@ -325,5 +381,5 @@ export async function mount(root, url, opts = {}) {
   // Run module-level code (which calls init()), then first render.
   ex.__main__global_stmts();
   render();
-  return { dispatch, render, exports: ex };
+  return { dispatch, render, exports: ex, strs, vals };
 }
