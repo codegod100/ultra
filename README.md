@@ -54,14 +54,18 @@ python3 tools/ultra.py serve                       # http://localhost:8000/examp
 
 On macOS or Windows, install LPython with `conda install -c conda-forge lpython=0.22` instead of `setup`; `build` uses `lpython` from `PATH` when `.toolchain/` is absent. `setup` needs `pip install zstandard` (or the `zstd` command) to unpack conda packages.
 
-The built `.wasm` files are committed, so `serve` works without the toolchain.
+Each example folder is self-contained (`index.html`, `app.wasm`, `ultra.js`, `style.css`), and the built files are committed, so you can run a demo without the toolchain by serving its folder with any static server:
 
-A page mounts an app like this:
+```sh
+cd examples/todo && python3 -m http.server     # http://localhost:8000/
+```
+
+`build` copies `ultra/ultra.js` next to the `.wasm` it writes. A page mounts an app like this:
 
 ```html
 <main id="app"></main>
 <script type="module">
-  import { mount } from "./ultra/ultra.js";
+  import { mount } from "./ultra.js";
   mount("#app", "./app.wasm");
 </script>
 ```
@@ -102,7 +106,7 @@ LPython's wasm backend (0.22) is much less complete than its LLVM backend. Here 
 ultra/ultra.py     LPython API (@jscall declarations + helpers)
 ultra/ultra.js     runtime: loader, vnode builder, keyed diff/patch, events, string store
 tools/ultra.py     setup / build (with boot stub + wasm patch) / serve
-examples/counter   counter with steps and an auto-increment timer
+examples/counter   counter with steps and an auto-increment timer (self-contained folder)
 examples/todo      todo list with filters, keyed rows, localStorage persistence
 tests/e2e.cjs      Playwright smoke test
 ```

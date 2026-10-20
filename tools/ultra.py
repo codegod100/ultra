@@ -2,7 +2,7 @@
 """ultra build tool.
 
   python3 tools/ultra.py setup              fetch LPython from conda-forge into .toolchain/
-  python3 tools/ultra.py build APP.py [-o OUT.wasm]
+  python3 tools/ultra.py build APP.py [-o OUT.wasm]   (also copies ultra.js next to it)
   python3 tools/ultra.py serve [DIR] [--port 8000]
 
 `build` appends a small boot stub to the app so LPython keeps update()/view()
@@ -254,6 +254,9 @@ def build(args):
         wasm = open(os.path.join(tmp, "app.wasm"), "rb").read()
         with open(out, "wb") as f:
             f.write(fix_global_arrays(wasm, src))
+    # Ship the runtime next to the wasm so the app folder is self-contained and
+    # can be served from any directory.
+    shutil.copy(os.path.join(LIB, "ultra.js"), os.path.join(os.path.dirname(out), "ultra.js"))
     print(f"built {os.path.relpath(out)} ({os.path.getsize(out)} bytes)")
 
 
