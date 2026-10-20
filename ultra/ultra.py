@@ -110,6 +110,12 @@ def after(ms: i32, msg: i32, arg: i32) -> None:
     pass
 
 @jscall
+def frame(msg: i32, arg: i32) -> None:
+    """Send update(msg, arg) at the start of the next animation frame, just
+    before view(). Call it again from update() to run an animation loop."""
+    pass
+
+@jscall
 def now_ms() -> f64:
     pass
 

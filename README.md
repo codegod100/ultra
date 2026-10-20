@@ -29,6 +29,15 @@ def view() -> None:
 
 The counter demo compiles to **1.8 KB** of wasm and the todo app to **3.9 KB** (2 KB gzipped).
 
+## Performance demos
+
+Two examples exist to stress the runtime, and both show their timings on the page:
+
+- **`examples/bench`** is a [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark)-style table: create 1,000 or 10,000 keyed rows, append, update every 10th row, swap two rows, select, remove, clear. The side panel splits each operation into update (wasm), view (wasm building vnodes), diff + DOM patch, and time to next paint. **Run suite** runs the standard set five times and reports medians.
+- **`examples/life`** is Conway's Game of Life on a 50², 100² or 150² board, drawn as one DOM element per cell. Each animation frame steps the board in wasm, rebuilds the whole virtual DOM (up to 22,500 cells), diffs it and patches what changed. The panel shows FPS, a frame-time graph, and the per-phase cost.
+
+In headless Chromium on a 4-core cloud VM, ultra's own work (wasm + diff + patch) is about 15 ms for 1,000 rows, 100 ms for 10,000 rows, and 7 ms per frame for the 150² board. The rest of each number is the browser's style, layout and paint. Expect your desktop browser to do much better.
+
 ## The architecture
 
 It's The Elm Architecture, with LPython's types:
@@ -40,7 +49,7 @@ It's The Elm Architecture, with LPython's types:
 | `init`         | `def init() -> None` (optional)                             |
 | `update`       | `def update(msg: i32, arg: i32) -> None`                    |
 | `view`         | `def view() -> None`, which emits a virtual DOM             |
-| `Cmd`          | `after(ms, msg, arg)`, localStorage helpers                 |
+| `Cmd`          | `after(ms, msg, arg)`, `frame(msg, arg)`, localStorage helpers |
 
 `view()` describes the UI as a stream of calls: `el("li")`, `cls(...)`, `attr(...)`, `key(...)`, `text(...)`, `num(...)`, `on_click(MSG, arg)`, `end()`. The runtime collects the stream into a vnode tree, diffs it against the previous frame (keyed when you call `key()`), and patches the DOM. Events are delegated from the mount point and become `update(msg, arg)` calls, with re-renders batched onto `requestAnimationFrame`. You never touch the DOM from LPython.
 
@@ -82,7 +91,11 @@ Shorthands: `div(cls)`, `span(cls)`, `h1(s)`, `button(label, msg, arg)`, `label_
 
 **Events:** `on_click(msg, arg)`, `on_dblclick(msg, arg)`, `on_enter(msg, arg)`, `on_input(msg)` (sends `update(msg, EVENT)`, with the input's text in string handle `0`).
 
-**Commands:** `after(ms, msg, arg)`, `now_ms()`, `log(i)`.
+**Commands:** `after(ms, msg, arg)`, `frame(msg, arg)` (sends the message at the start of the next animation frame, just before `view()`; call it again from `update()` to run an animation loop), `now_ms()`, `log(i)`.
+
+**Timing hook:** `mount(root, url, { onRender })` calls `onRender({ start, update, view, patch, end, nodes })` after every patch, with times in ms from `performance.now()`. `start` is the first dispatch since the previous render.
+
+**Keyed lists:** call `key(id)` on each child. The diff skips the common prefix and suffix, then moves only the nodes outside the longest increasing subsequence, so swapping two rows of 1,000 moves two DOM nodes. Replacing or clearing a whole list is a single `textContent` reset.
 
 **Strings:** `s_new()`, `s_dup(h)`, `s_copy(dst, src)`, `s_clear(h)`, `s_free(h)`, `s_len(h)` (trimmed length).
 
@@ -110,5 +123,7 @@ tools/ultra.py     build (with boot stub + wasm patch) / serve / test
 pixi.toml          toolchain and tasks (build, serve, test, install-playwright)
 examples/counter   counter with steps and an auto-increment timer (self-contained folder)
 examples/todo      todo list with filters, keyed rows, localStorage persistence
+examples/bench     js-framework-benchmark style keyed table with an in-page timing suite
+examples/life      Game of Life animation, up to 22,500 DOM cells per frame, FPS readout
 tests/e2e.cjs      Playwright smoke test
 ```

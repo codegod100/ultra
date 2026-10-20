@@ -16,8 +16,9 @@ export async function mount(root, url, opts = {}) {
 
   // LPython strings are a pointer to { data: i32, len: i32 }.
   // Literals live in static data, so decoding is cached by (data, len).
+  let dv = null;
   const str = (p) => {
-    const dv = new DataView(mem.buffer);
+    if (dv === null || dv.buffer !== mem.buffer) dv = new DataView(mem.buffer);
     const a = dv.getInt32(p, true), l = dv.getInt32(p + 4, true);
     const k = a * 4096 + l;
     let s = cache.get(k);
@@ -42,21 +43,31 @@ export async function mount(root, url, opts = {}) {
   // vnode: { t, k, a, cls, p, ev, c, n }   text: { t: "#", s, n }
   let stack, cur;
   const node = (t) => ({ t, k: null, a: null, cls: "", p: null, ev: null, c: [], n: null });
-  const push = (v) => cur.c.push(v);
+  let nodes = 0;
+  const push = (v) => { nodes++; cur.c.push(v); };
   const txt = (s) => push({ t: "#", k: null, s: String(s), n: null });
   const setA = (k, v) => ((cur.a ||= {})[k] = v);
   const setP = (k, v) => ((cur.p ||= {})[k] = v);
   const setEv = (k, v) => ((cur.ev ||= {})[k] = v);
 
   // ------------------------------------------------------------ scheduling
+  // Messages are applied immediately; the re-render is batched onto the next
+  // animation frame. frame(msg, arg) messages are held until that frame and
+  // applied just before view(), so an animation steps once per rendered frame.
   let queued = false;
+  let frameQ = [];
+  let since = 0, tUpdate = 0; // first dispatch since the last render, time in update()
   const schedule = () => {
     if (queued) return;
     queued = true;
+    if (!since) since = performance.now();
     requestAnimationFrame(render);
   };
   const dispatch = (msg, arg) => {
+    const t = performance.now();
+    if (!since) since = t;
     ex.update(msg, arg);
+    tUpdate += performance.now() - t;
     schedule();
   };
 
@@ -83,6 +94,7 @@ export async function mount(root, url, opts = {}) {
     on_enter: (m, a) => setEv("enter", [m, a]),
 
     after: (ms, m, a) => setTimeout(() => dispatch(m, a), ms),
+    frame: (m, a) => { frameQ.push(m, a); schedule(); },
     now_ms: () => performance.now(),
     log: (x) => console.log("[ultra]", x),
 
@@ -183,6 +195,10 @@ export async function mount(root, url, opts = {}) {
   const patchChildren = (parent, oc, vc) => {
     if (oc.length === 0 && vc.length === 0) return;
     const keyed = vc.length > 0 && vc[0].k !== null && oc.length > 0 && oc[0].k !== null;
+    if (vc.length === 0 && parent.childNodes.length === oc.length) {
+      parent.textContent = ""; // clearing a whole list: one DOM op
+      return;
+    }
     if (!keyed) {
       const m = Math.min(oc.length, vc.length);
       for (let i = 0; i < m; i++) patch(oc[i], vc[i]);
@@ -190,25 +206,90 @@ export async function mount(root, url, opts = {}) {
       for (let i = m; i < oc.length; i++) oc[i].n.remove();
       return;
     }
-    const byKey = new Map();
-    for (const o of oc) byKey.set(o.k, o);
-    let ref = parent.firstChild;
-    for (const v of vc) {
-      const o = byKey.get(v.k);
-      if (o) { byKey.delete(v.k); patch(o, v); } else create(v);
-      if (v.n !== ref) parent.insertBefore(v.n, ref);
-      else ref = ref.nextSibling;
+    patchKeyed(parent, oc, vc);
+  };
+
+  // Keyed children: skip the common prefix and suffix, then match the middle by
+  // key and move only the nodes outside the longest increasing subsequence of
+  // old positions. Swapping two rows of 1,000 moves 2 nodes, not 998.
+  const patchKeyed = (parent, oc, vc) => {
+    let os = 0, oe = oc.length - 1, vs = 0, ve = vc.length - 1;
+    while (os <= oe && vs <= ve && oc[os].k === vc[vs].k) patch(oc[os++], vc[vs++]);
+    while (os <= oe && vs <= ve && oc[oe].k === vc[ve].k) patch(oc[oe--], vc[ve--]);
+    const anchor = ve + 1 < vc.length ? vc[ve + 1].n : null;
+    if (os > oe) {
+      for (let i = vs; i <= ve; i++) parent.insertBefore(create(vc[i]), anchor);
+      return;
     }
-    for (const o of byKey.values()) o.n.remove();
+    if (vs > ve) {
+      for (let i = os; i <= oe; i++) oc[i].n.remove();
+      return;
+    }
+    const at = new Map();
+    for (let i = vs; i <= ve; i++) at.set(vc[i].k, i);
+    if (os === 0 && oe === oc.length - 1 && parent.childNodes.length === oc.length &&
+        !oc.some((o) => at.has(o.k))) {
+      // Nothing reused (e.g. replacing every row): drop all, build all.
+      parent.textContent = "";
+      for (const v of vc) parent.appendChild(create(v));
+      return;
+    }
+    const src = new Int32Array(ve - vs + 1).fill(-1); // new slot -> old index
+    let moved = false, last = -1;
+    for (let i = os; i <= oe; i++) {
+      const o = oc[i], j = at.get(o.k);
+      if (j === undefined) { o.n.remove(); continue; }
+      src[j - vs] = i;
+      patch(o, vc[j]);
+      if (j < last) moved = true; else last = j;
+    }
+    const keep = moved ? lis(src) : null;
+    let li = keep ? keep.length - 1 : -1;
+    let next = anchor;
+    for (let j = ve; j >= vs; j--) {
+      const v = vc[j], p = j - vs;
+      if (src[p] === -1) parent.insertBefore(create(v), next);
+      else if (moved) {
+        if (li >= 0 && keep[li] === p) li--;
+        else parent.insertBefore(v.n, next);
+      }
+      next = v.n;
+    }
+  };
+
+  // Positions (into a) of a longest strictly increasing subsequence, skipping -1.
+  const lis = (a) => {
+    const prev = new Int32Array(a.length), tails = [];
+    for (let i = 0; i < a.length; i++) {
+      const x = a[i];
+      if (x === -1) continue;
+      let lo = 0, hi = tails.length;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (a[tails[m]] < x) lo = m + 1; else hi = m; }
+      prev[i] = lo > 0 ? tails[lo - 1] : -1;
+      tails[lo] = i;
+    }
+    const out = new Array(tails.length);
+    for (let k = tails.length - 1, i = tails[k]; k >= 0; k--, i = prev[i]) out[k] = i;
+    return out;
   };
 
   // ------------------------------------------------------------ render
   let prev = null;
+  // opts.onRender(stats) runs after each patch with timings in ms:
+  //   { start, update, view, patch, end, nodes }
+  // where start is the first dispatch since the previous render.
   function render() {
     queued = false;
+    const t0 = performance.now();
+    if (frameQ.length) {
+      const q = frameQ; frameQ = [];
+      for (let i = 0; i < q.length; i += 2) ex.update(q[i], q[i + 1]);
+    }
+    const t1 = performance.now();
     const top = node("#root");
-    stack = []; cur = top;
+    stack = []; cur = top; nodes = 0;
     ex.view();
+    const t2 = performance.now();
     if (prev === null) {
       root.textContent = "";
       for (const c of top.c) root.appendChild(create(c));
@@ -216,6 +297,11 @@ export async function mount(root, url, opts = {}) {
       patchChildren(root, prev.c, top.c);
     }
     prev = top;
+    const t3 = performance.now();
+    const stats = { start: since || t0, update: tUpdate + (t1 - t0),
+                    view: t2 - t1, patch: t3 - t2, end: t3, nodes };
+    since = 0; tUpdate = 0;
+    if (opts.onRender) opts.onRender(stats);
   }
 
   // ------------------------------------------------------------ events

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ultra · Game of Life</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="layout">
+    <main id="app"></main>
+    <aside class="hud">
+      <div class="fps"><span id="fps">–</span><small>fps</small></div>
+      <canvas id="graph" width="260" height="60" aria-label="Frame time history"></canvas>
+      <dl>
+        <dt>frame time</dt><dd id="t-frame">–</dd>
+        <dt>step (wasm)</dt><dd id="t-update">–</dd>
+        <dt>view (wasm → vnodes)</dt><dd id="t-view">–</dd>
+        <dt>diff + DOM patch</dt><dd id="t-patch">–</dd>
+        <dt>vnodes / frame</dt><dd id="t-nodes">–</dd>
+      </dl>
+      <p class="note">Averages over the last second. Every frame steps the board in wasm, rebuilds the whole virtual DOM, diffs it and patches the cells that changed.</p>
+      <p class="badge">LPython → wasm · <a href="https://github.com/codegod100/ultra">ultra</a> · <a href="../bench/">Row benchmark</a></p>
+    </aside>
+  </div>
+  <script type="module">
+    import { mount } from "./ultra.js";
+    const $ = (id) => document.getElementById(id);
+    const ms = (x) => x.toFixed(2) + " ms";
+
+    const g = $("graph"), ctx = g.getContext("2d");
+    const hist = [];           // ms between rendered frames
+    let win = [], lastEnd = 0, lastShown = 0;
+
+    function draw() {
+      const w = g.width, h = g.height, css = getComputedStyle(document.body);
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = css.getPropertyValue("--line");
+      const y60 = h - (16.7 / 50) * h;
+      ctx.fillRect(0, y60, w, 1);                        // 60 fps line
+      ctx.fillStyle = css.getPropertyValue("--accent");
+      const bw = w / 120;
+      hist.forEach((d, i) => {
+        const bh = Math.min(h, (d / 50) * h);
+        ctx.fillRect(i * bw, h - bh, Math.max(1, bw - 1), bh);
+      });
+    }
+
+    const onRender = (s) => {
+      if (lastEnd) {
+        const dt = s.end - lastEnd;
+        hist.push(dt); if (hist.length > 120) hist.shift();
+        win.push({ dt, ...s });
+      }
+      lastEnd = s.end;
+      if (s.end - lastShown < 1000 || win.length === 0) return;
+      lastShown = s.end;
+      const avg = (k) => win.reduce((a, x) => a + x[k], 0) / win.length;
+      const frameMs = avg("dt");
+      $("fps").textContent = Math.round(1000 / frameMs);
+      $("t-frame").textContent = ms(frameMs);
+      $("t-update").textContent = ms(avg("update"));
+      $("t-view").textContent = ms(avg("view"));
+      $("t-patch").textContent = ms(avg("patch"));
+      $("t-nodes").textContent = Math.round(avg("nodes")).toLocaleString();
+      window.ultraLife = { fps: 1000 / frameMs, frameMs, view: avg("view"), patch: avg("patch"), update: avg("update") };
+      win = [];
+      draw();
+    };
+    // A paused board renders only on clicks, so restart the frame clock then.
+    document.addEventListener("click", () => { lastEnd = 0; }, true);
+    mount("#app", "./app.wasm", { onRender });
+  </script>
+</body>
+</html>

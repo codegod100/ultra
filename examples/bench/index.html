@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ultra · Benchmark</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="layout">
+    <main id="app"></main>
+    <aside class="hud">
+      <h2>Last operation</h2>
+      <dl id="last">
+        <dt>total</dt><dd id="t-total">–</dd>
+        <dt>update (wasm)</dt><dd id="t-update">–</dd>
+        <dt>view (wasm → vnodes)</dt><dd id="t-view">–</dd>
+        <dt>diff + DOM patch</dt><dd id="t-patch">–</dd>
+        <dt>≈ to next paint</dt><dd id="t-paint">–</dd>
+        <dt>vnodes</dt><dd id="t-nodes">–</dd>
+      </dl>
+      <h2>Suite <small>median of 5, ms to paint</small></h2>
+      <button id="suite">Run suite</button>
+      <table id="results"></table>
+      <p class="badge">LPython → wasm · <a href="https://github.com/codegod100/ultra">ultra</a> · <a href="../life/">Game of Life</a></p>
+    </aside>
+  </div>
+  <script type="module">
+    import { mount } from "./ultra.js";
+
+    // Msg tags from app.py
+    const RUN = 1, ADD = 2, UPDATE = 3, CLEAR = 4, SWAP = 5, SELECT = 6, REMOVE = 7;
+    const $ = (id) => document.getElementById(id);
+    const ms = (x) => x.toFixed(1) + " ms";
+
+    let waiter = null;
+    const onRender = (s) => {
+      $("t-total").textContent = ms(s.end - s.start);
+      $("t-update").textContent = ms(s.update);
+      $("t-view").textContent = ms(s.view);
+      $("t-patch").textContent = ms(s.patch);
+      $("t-nodes").textContent = s.nodes.toLocaleString();
+      // The frame's style, layout and paint run after this callback returns.
+      setTimeout(() => {
+        const paint = performance.now() - s.start;
+        $("t-paint").textContent = ms(paint);
+        if (waiter) { const w = waiter; waiter = null; w(paint); }
+      }, 0);
+    };
+    const app = await mount("#app", "./app.wasm", { onRender });
+
+    // Dispatch a message and resolve with ms until the frame painted.
+    const run = (msg, arg = 0) => new Promise((r) => { waiter = r; app.dispatch(msg, arg); });
+    const rowId = (nth) => Number(document.querySelector(`tbody tr:nth-child(${nth}) td.id`).textContent);
+
+    const suite = [
+      ["create 1,000 rows", () => run(CLEAR), () => run(RUN, 1000)],
+      ["replace 1,000 rows", () => run(RUN, 1000), () => run(RUN, 1000)],
+      ["update every 10th row", () => run(RUN, 1000), () => run(UPDATE)],
+      ["select row", () => run(RUN, 1000), () => run(SELECT, rowId(2))],
+      ["swap rows", () => run(RUN, 1000), () => run(SWAP)],
+      ["remove row", () => run(RUN, 1000), () => run(REMOVE, rowId(5))],
+      ["create 10,000 rows", () => run(CLEAR), () => run(RUN, 10000)],
+      ["append 1,000 to 10,000", () => run(RUN, 10000), () => run(ADD, 1000)],
+      ["clear 10,000 rows", () => run(RUN, 10000), () => run(CLEAR)],
+    ];
+
+    const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[s.length >> 1]; };
+    async function runSuite(reps = 5) {
+      const out = $("results"), btn = $("suite");
+      btn.disabled = true;
+      out.innerHTML = "";
+      const results = [];
+      for (const [name, setup, measure] of suite) {
+        const row = out.insertRow();
+        row.insertCell().textContent = name;
+        const cell = row.insertCell();
+        cell.textContent = "…";
+        const times = [];
+        for (let i = 0; i < reps + 1; i++) {   // first run is warm-up
+          await setup();
+          const t = await measure();
+          if (i > 0) times.push(t);
+        }
+        const m = median(times);
+        cell.textContent = m.toFixed(1);
+        results.push({ name, ms: m });
+      }
+      await run(CLEAR);
+      btn.disabled = false;
+      return results;
+    }
+    $("suite").onclick = () => runSuite();
+    window.ultraBench = { runSuite, run };
+  </script>
+</body>
+</html>
