@@ -1,4 +1,4 @@
-.toolchain/
 __pycache__/
 *.png
 node_modules/
+.pixi/

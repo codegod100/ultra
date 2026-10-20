@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """ultra build tool.
 
-  python3 tools/ultra.py setup              fetch LPython from conda-forge into .toolchain/
-  python3 tools/ultra.py build APP.py [-o OUT.wasm]   (also copies ultra.js next to it)
-  python3 tools/ultra.py serve [DIR] [--port 8000]
+  python tools/ultra.py build APP.py... [-o OUT.wasm]   (also copies ultra.js next to it)
+  python tools/ultra.py serve [DIR] [--port 8000]
+  python tools/ultra.py test                 serve on a free port, run tests/e2e.cjs
+
+Run it through pixi (`pixi run build`, `pixi run serve`, `pixi run test`),
+which provides lpython and node from conda-forge.
 
 `build` appends a small boot stub to the app so LPython keeps update()/view()
 (its wasm backend only emits functions reachable from module-level code) and
@@ -14,25 +17,16 @@ fix_global_arrays).
 
 import argparse
 import http.server
-import io
-import json
 import os
 import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
-import urllib.request
-import zipfile
+import threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(ROOT, "ultra")
-TOOLCHAIN = os.path.join(ROOT, ".toolchain")
-CHANNEL = "https://conda.anaconda.org/conda-forge/linux-64/"
-# lpython plus the two shared libraries its binary links against that aren't
-# usually present on a stock Linux (libzmq/libsodium come from the distro).
-PACKAGES = [("lpython", "0.22.0"), ("xeus", "5.1"), ("xeus-zmq", "3.0")]
 
 BOOT = """
 
@@ -49,48 +43,11 @@ __ultra_boot()
 
 
 def find_lpython():
-    local = os.path.join(TOOLCHAIN, "bin", "lpython")
-    if os.path.exists(local):
-        return local
     found = shutil.which("lpython")
     if found:
         return found
-    sys.exit("lpython not found. Run `python3 tools/ultra.py setup`, or install it with "
-             "`conda install -c conda-forge lpython`.")
-
-
-def untar_zst(data, dest):
-    try:
-        import zstandard
-        reader = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(data))
-        tarfile.open(fileobj=reader, mode="r|").extractall(dest, filter="fully_trusted")
-    except ImportError:
-        if not shutil.which("zstd"):
-            sys.exit("need `pip install zstandard` or the zstd command to unpack conda packages")
-        raw = subprocess.run(["zstd", "-dc"], input=data, capture_output=True, check=True).stdout
-        tarfile.open(fileobj=io.BytesIO(raw)).extractall(dest, filter="fully_trusted")
-
-
-def setup(_args):
-    if sys.platform != "linux":
-        sys.exit("`setup` downloads linux-64 builds. On macOS/Windows use "
-                 "`conda install -c conda-forge lpython`.")
-    print("fetching conda-forge index ...")
-    repo = json.load(urllib.request.urlopen(CHANNEL + "repodata.json"))
-    pkgs = {**repo.get("packages", {}), **repo.get("packages.conda", {})}
-    os.makedirs(TOOLCHAIN, exist_ok=True)
-    for name, ver in PACKAGES:
-        cands = [(v.get("timestamp", 0), f) for f, v in pkgs.items()
-                 if v["name"] == name and v["version"].startswith(ver) and f.endswith(".conda")]
-        if not cands:
-            sys.exit(f"{name} {ver} not found on conda-forge")
-        fname = max(cands)[1]
-        print("  ", fname)
-        z = zipfile.ZipFile(io.BytesIO(urllib.request.urlopen(CHANNEL + fname).read()))
-        inner = next(n for n in z.namelist() if n.startswith("pkg-"))
-        untar_zst(z.read(inner), TOOLCHAIN)
-    out = subprocess.run([find_lpython(), "--version"], capture_output=True, text=True)
-    print(out.stdout.strip() or out.stderr.strip())
+    sys.exit("lpython not found. Run this through pixi (`pixi run build`), or put "
+             "conda-forge's lpython 0.22 on PATH.")
 
 
 # ---------------------------------------------------------------- wasm patch
@@ -233,13 +190,20 @@ def fix_global_arrays(wasm, src):
 
 
 def build(args):
-    app = os.path.abspath(args.app)
-    out = os.path.abspath(args.o or os.path.splitext(app)[0] + ".wasm")
+    if args.o and len(args.app) > 1:
+        sys.exit("-o needs a single app")
+    for app in args.app:
+        build_app(app, args.o)
+
+
+def build_app(path, out=None):
+    app = os.path.abspath(path)
+    out = os.path.abspath(out or os.path.splitext(app)[0] + ".wasm")
     src = open(app).read()
     has_init = re.search(r"^def\s+init\s*\(", src, re.M) is not None
     for fn in ("update", "view"):
         if not re.search(rf"^def\s+{fn}\s*\(", src, re.M):
-            sys.exit(f"{args.app}: missing `def {fn}(...)`")
+            sys.exit(f"{path}: missing `def {fn}(...)`")
     src += BOOT.format(init="    init()\n" if has_init else "")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -260,27 +224,49 @@ def build(args):
     print(f"built {os.path.relpath(out)} ({os.path.getsize(out)} bytes)")
 
 
+def make_server(directory, port, quiet=False):
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
+                          ".wasm": "application/wasm", ".js": "text/javascript"}
+
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=directory, **kw)
+
+        def log_message(self, *a):
+            if not quiet:
+                super().log_message(*a)
+
+    return http.server.ThreadingHTTPServer(("", port), Handler)
+
+
 def serve(args):
-    os.chdir(args.dir)
-    handler = http.server.SimpleHTTPRequestHandler
-    handler.extensions_map[".wasm"] = "application/wasm"
-    handler.extensions_map[".js"] = "text/javascript"
+    srv = make_server(os.path.abspath(args.dir), args.port)
     print(f"serving {os.path.abspath(args.dir)} on http://localhost:{args.port}")
-    http.server.ThreadingHTTPServer(("", args.port), handler).serve_forever()
+    srv.serve_forever()
+
+
+def test(_args):
+    srv = make_server(ROOT, 0, quiet=True)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://localhost:{srv.server_address[1]}"
+    r = subprocess.run(["node", os.path.join(ROOT, "tests", "e2e.cjs")], cwd=ROOT,
+                       env={**os.environ, "BASE": base})
+    srv.shutdown()
+    sys.exit(r.returncode)
 
 
 def main():
     p = argparse.ArgumentParser(description="ultra: Elm-style LPython -> wasm frontend")
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("setup").set_defaults(fn=setup)
     b = sub.add_parser("build")
-    b.add_argument("app")
+    b.add_argument("app", nargs="+")
     b.add_argument("-o")
     b.set_defaults(fn=build)
     s = sub.add_parser("serve")
     s.add_argument("dir", nargs="?", default=ROOT)
     s.add_argument("--port", type=int, default=8000)
     s.set_defaults(fn=serve)
+    sub.add_parser("test").set_defaults(fn=test)
     args = p.parse_args()
     args.fn(args)
 

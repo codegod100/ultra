@@ -46,13 +46,14 @@ It's The Elm Architecture, with LPython's types:
 
 ## Quick start
 
+The toolchain (LPython 0.22, Python, Node) is managed with [pixi](https://pixi.sh) from conda-forge, pinned in `pixi.lock`. It works on linux-64, osx-64, osx-arm64, and win-64.
+
 ```sh
-python3 tools/ultra.py setup                       # fetch LPython 0.22 into .toolchain/ (linux-64)
-python3 tools/ultra.py build examples/todo/app.py  # -> examples/todo/app.wasm
-python3 tools/ultra.py serve                       # http://localhost:8000/examples/todo/
+pixi run build    # compile examples/*/app.py -> app.wasm
+pixi run serve    # http://localhost:8000/examples/todo/
 ```
 
-On macOS or Windows, install LPython with `conda install -c conda-forge lpython=0.22` instead of `setup`; `build` uses `lpython` from `PATH` when `.toolchain/` is absent. `setup` needs `pip install zstandard` (or the `zstd` command) to unpack conda packages.
+To build your own app, run `pixi run python tools/ultra.py build path/to/app.py` (it writes `path/to/app.wasm`), or open a shell with the toolchain on `PATH` using `pixi shell`.
 
 Each example folder is self-contained (`index.html`, `app.wasm`, `ultra.js`, `style.css`), and the built files are committed, so you can run a demo without the toolchain by serving its folder with any static server:
 
@@ -70,7 +71,7 @@ cd examples/todo && python3 -m http.server     # http://localhost:8000/
 </script>
 ```
 
-Browser test (needs Playwright): `python3 tools/ultra.py serve & node tests/e2e.cjs`
+Browser test: `pixi run install-playwright` once, then `pixi run test`. It rebuilds the examples, serves the repo on a free port, and runs `tests/e2e.cjs`.
 
 ## API (`ultra/ultra.py`)
 
@@ -105,7 +106,8 @@ LPython's wasm backend (0.22) is much less complete than its LLVM backend. Here 
 ```
 ultra/ultra.py     LPython API (@jscall declarations + helpers)
 ultra/ultra.js     runtime: loader, vnode builder, keyed diff/patch, events, string store
-tools/ultra.py     setup / build (with boot stub + wasm patch) / serve
+tools/ultra.py     build (with boot stub + wasm patch) / serve / test
+pixi.toml          toolchain and tasks (build, serve, test, install-playwright)
 examples/counter   counter with steps and an auto-increment timer (self-contained folder)
 examples/todo      todo list with filters, keyed rows, localStorage persistence
 tests/e2e.cjs      Playwright smoke test
