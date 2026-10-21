@@ -73,6 +73,24 @@ Two examples exist to stress the runtime, and both show their timings on the pag
 
 In headless Chromium on a 4-core cloud VM, ultra's own work (wasm + diff + patch) is about 15 ms for 1,000 rows, 100 ms for 10,000 rows, and 7 ms per frame for the 150² board. The rest of each number is the browser's style, layout and paint. Expect your desktop browser to do much better.
 
+## Android launcher
+
+`examples/launcher` is an Android home screen written as an ultra app: a clock, app search (Enter opens the first match), an app grid with the real icons, and a dock of up to five pinned apps saved in localStorage. `android/` is a small native shell (one Java file, no dependencies) that serves that folder to a transparent WebView over the wallpaper and answers two dynamic URLs:
+
+- `apps.json` lists every launchable activity from `LauncherApps`, sorted by label.
+- `icon?c=pkg/cls` renders that activity's icon to a PNG.
+
+The app's own `@jscall` imports (`launch`, `app_info`, `open_settings`, `pick_wallpaper`, `clock_time`, `clock_date`) go to a `window.Android` JavaScript interface. The shell sends package installs and removals, the home button, back and resume to the page as messages, so the grid refreshes itself and Home clears the search.
+
+Install it from the [`launcher-latest` release](https://github.com/codegod100/ultra/releases/tag/launcher-latest), which CI rebuilds on every push that touches the launcher. Open it once, press Home, and pick **ultra Home** as the default. To build it yourself you need JDK 17 and the Android SDK:
+
+```sh
+pixi run build                      # rebuilds examples/launcher/app.wasm
+cd android && ./gradlew assembleDebug   # android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+In a desktop browser, `examples/launcher/` runs against a demo `apps.json` and shows a toast instead of launching.
+
 ## The architecture
 
 It's The Elm Architecture, with LPython's types:
