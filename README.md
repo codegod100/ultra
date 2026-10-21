@@ -67,11 +67,11 @@ Link `ui.css` before your own stylesheet; `build` copies it next to `app.wasm`. 
 
 ## Using ultra from another project
 
-ultra is published as a conda package on the [`codegod100` prefix.dev channel](https://prefix.dev/channels/codegod100) (built by `.github/workflows/conda.yml` from `recipe/` on every push to main). In a pixi project:
+ultra is published as a conda package on the [`nandi-testing` prefix.dev channel](https://prefix.dev/channels/nandi-testing) (built from `recipe/` on every push to main by `.github/workflows/package.yml`, which calls the shared [nandi-conda/ci](https://github.com/nandi-conda/ci) workflow). In a pixi project:
 
 ```toml
 [workspace]
-channels = ["conda-forge", "https://prefix.dev/codegod100"]
+channels = ["conda-forge", "https://prefix.dev/nandi-testing"]
 
 [dependencies]
 ultra = "*"
@@ -83,7 +83,7 @@ serve = "ultra serve ."
 
 The package brings in lpython, puts the framework (`ultra.py`, `ui.py`, `ultra.js`, `ui.css`) where `ultra build` finds it, and exposes the tool as the `ultra_tool` module (`from ultra_tool import make_server`).
 
-To publish by hand: `pixi auth login prefix.dev --token <prefix.dev API key>` once, then `pixi run publish` (version `0.1.<commit count>`, channel `codegod100`, or set `PREFIX_CHANNEL`).
+To publish by hand: `pixi auth login prefix.dev --token <prefix.dev API key>` once, then `pixi run publish` (version `0.1.<commit count>`, channel `nandi-testing`, or set `PREFIX_CHANNEL`).
 
 ## Performance demos
 

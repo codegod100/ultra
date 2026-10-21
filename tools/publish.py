@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the ultra conda package (recipe/) and upload it to prefix.dev.
 
-  pixi run publish                       version 0.1.<commit count>, channel codegod100
+  pixi run publish                       version 0.1.<commit count>, channel nandi-testing
   PREFIX_CHANNEL=other pixi run publish
 
 Auth: PREFIX_API_KEY in the environment, or a one-time
@@ -28,7 +28,7 @@ def run(*cmd, **kw):
 def main():
     count = run("git", "rev-list", "--count", "HEAD", capture_output=True, text=True).stdout.strip()
     version = os.environ.get("ULTRA_VERSION") or f"0.1.{count}"
-    channel = os.environ.get("PREFIX_CHANNEL") or "codegod100"
+    channel = os.environ.get("PREFIX_CHANNEL") or "nandi-testing"
     out = os.path.join(ROOT, "output")
     run("rattler-build", "build", "-r", "recipe/recipe.yaml", "-c", "conda-forge", "--output-dir", out,
         env={**os.environ, "ULTRA_VERSION": version})

@@ -42,8 +42,8 @@ tests:
       - python -c "from ultra_tool import make_server; make_server('.', 0, quiet=True).server_close()"
 
 about:
-  homepage: https://github.com/codegod100/ultra
-  repository: https://github.com/codegod100/ultra
+  homepage: https://github.com/nandi-conda/ultra
+  repository: https://github.com/nandi-conda/ultra
   summary: Elm-style frontend framework, LPython apps compiled to WebAssembly
   description: |
     Provides the `ultra` command (build, serve) and the framework files
