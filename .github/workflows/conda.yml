@@ -1,9 +1,9 @@
 name: conda package
 
 # Builds the `ultra` conda package (recipe/recipe.yaml) and uploads it to the
-# anaconda.org channel named by the ANACONDA_OWNER repo variable (default codegod100).
-# Upload needs the ANACONDA_API_KEY repo secret; without it the package is built,
-# tested and kept as a workflow artifact only.
+# prefix.dev channel named by the PREFIX_CHANNEL repo variable (default codegod100).
+# Upload authenticates with prefix.dev trusted publishing (GitHub OIDC), or with
+# the PREFIX_API_KEY repo secret when that is set.
 # Version is 0.1.<commit count>, so every push to main gets a new one.
 
 on:
@@ -15,8 +15,11 @@ on:
 jobs:
   package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
-      ANACONDA_OWNER: ${{ vars.ANACONDA_OWNER || 'codegod100' }}
+      PREFIX_CHANNEL: ${{ vars.PREFIX_CHANNEL || 'codegod100' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,12 +39,9 @@ jobs:
         with:
           name: ultra-conda
           path: out/noarch/*.conda
-      - name: Upload to anaconda.org
+      - name: Upload to prefix.dev
         env:
-          ANACONDA_API_KEY: ${{ secrets.ANACONDA_API_KEY }}
+          PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}
         run: |
-          if [ -z "$ANACONDA_API_KEY" ]; then
-            echo "::warning::ANACONDA_API_KEY secret not set, skipping upload"
-            exit 0
-          fi
-          rattler-build upload anaconda -o "$ANACONDA_OWNER" out/noarch/*.conda
+          [ -n "$PREFIX_API_KEY" ] || unset PREFIX_API_KEY
+          rattler-build upload prefix --skip-existing -c "$PREFIX_CHANNEL" out/noarch/*.conda

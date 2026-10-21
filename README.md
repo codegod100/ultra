@@ -67,11 +67,11 @@ Link `ui.css` before your own stylesheet; `build` copies it next to `app.wasm`. 
 
 ## Using ultra from another project
 
-ultra is published as a conda package on the `codegod100` anaconda.org channel (built by `.github/workflows/conda.yml` from `recipe/` on every push to main). In a pixi project:
+ultra is published as a conda package on the [`codegod100` prefix.dev channel](https://prefix.dev/channels/codegod100) (built by `.github/workflows/conda.yml` from `recipe/` on every push to main). In a pixi project:
 
 ```toml
 [workspace]
-channels = ["conda-forge", "codegod100"]
+channels = ["conda-forge", "https://prefix.dev/codegod100"]
 
 [dependencies]
 ultra = "*"
