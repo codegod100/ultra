@@ -103,16 +103,49 @@ def module_vars(src):
     return out
 
 
+def array_len(name, typ, src):
+    """Element count of a module-level `name: i32[N]` (or Array[i32, N]); N is a
+    literal or an int constant."""
+    m = re.fullmatch(r"(?:i32\[|Array\[\s*i32\s*,)\s*(\w+)\s*\]", typ)
+    if m and m.group(1).isdigit():
+        return int(m.group(1))
+    c = m and re.search(rf"^{m.group(1)}\s*:\s*(?:Const\[i32\]|i32)\s*=\s*(\d+)\s*$", src, re.M)
+    if not c:
+        sys.exit(f"module-level `{name}: {typ}`: give the size as a number or an i32 "
+                 f"constant defined at module level")
+    return int(c.group(1))
+
+
+def pair_regions(addrs, arrays):
+    """Name the array that owns each allocation. A region runs to the next higher
+    address, so all but the last-placed one have a known size; match those by size."""
+    left = list(arrays)
+    owner = [None] * len(addrs)
+    order = sorted(range(len(addrs)), key=lambda k: addrs[k])
+    for a, b in zip(order, order[1:]):
+        size = (addrs[b] - addrs[a]) // 4
+        fit = [x for x in left if x[1] == size]
+        if not fit:
+            sys.exit(f"no module-level array has {size} slots (sizes: "
+                     f"{sorted(n for _, n in arrays)}); unexpected LPython array layout")
+        left.remove(fit[0])
+        owner[a] = fit[0][0]
+    owner[order[-1]] = left[0][0]
+    return owner
+
+
 def fix_global_arrays(wasm, src):
     """LPython 0.22 compiles `xs: i32[N] = empty(N, dtype=int32)` at module level
     to `i32.const ADDR; local.set k` inside __main__global_stmts, so the global
     that every function reads stays 0 and all arrays alias address 0. Rewrite
     those local.set k into global.set g.
 
-    Module globals follow 7 runtime globals, sorted by name; the misplaced
-    locals follow source order."""
+    Module globals follow 7 runtime globals, sorted by name. The allocations
+    come in an order of LPython's own (neither source nor name order), packed
+    back to back, so each one is paired with an array of the size its region
+    has. Arrays of the same size are interchangeable: all start out zeroed."""
     mvars = module_vars(src)
-    arrays = [n for n, t in mvars if re.match(r"(i32\[|Array\[)", t)]
+    arrays = [(n, array_len(n, t, src)) for n, t in mvars if re.match(r"(i32\[|Array\[)", t)]
     for n, t in mvars:
         if re.match(r"[a-z]\w*\[", t) and not t.startswith("i32["):
             sys.exit(f"module-level `{n}: {t}`: only i32 arrays work at module level "
@@ -172,19 +205,22 @@ def fix_global_arrays(wasm, src):
     nloc, i = uleb(f, 0)
     for _ in range(nloc):
         _, i = uleb(f, i); i += 1
-    out = bytearray(f[:i])
-    k = 0
-    while f[i] == 0x41:  # i32.const ADDR ; local.set k
-        _, j = sleb(f, i + 1)
+    head = i
+    allocs = []  # (offset of i32.const, offset after it, address)
+    while f[i] == 0x41 and len(allocs) < len(arrays):  # i32.const ADDR ; local.set k
+        addr, j = sleb(f, i + 1)
         if f[j] != 0x21:
             break
-        loc, nxt = uleb(f, j + 1)
-        if loc >= len(arrays):
-            break
-        out += f[i:j] + b"\x24" + enc_uleb(gidx[arrays[loc]])
-        i = nxt; k += 1
-    if k != len(arrays):
-        sys.exit(f"expected {len(arrays)} array allocations in __main__global_stmts, found {k}")
+        _, nxt = uleb(f, j + 1)
+        allocs.append((i, j, addr))
+        i = nxt
+    if len(allocs) != len(arrays):
+        sys.exit(f"expected {len(arrays)} array allocations in __main__global_stmts, "
+                 f"found {len(allocs)}")
+    owner = pair_regions([a for _, _, a in allocs], arrays)
+    out = bytearray(f[:head])
+    for (s, j, _), name in zip(allocs, owner):
+        out += f[s:j] + b"\x24" + enc_uleb(gidx[name])
     out += f[i:]
     bodies[stmts - n_imported] = out
 
