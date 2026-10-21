@@ -14,3 +14,12 @@ build = { cmd = "python tools/ultra.py build examples/counter/app.py examples/to
 serve = { cmd = "python tools/ultra.py serve", description = "Serve the repo on http://localhost:8000" }
 install-playwright = { cmd = "npm install --no-save --no-package-lock playwright@1.56.1 && npx playwright install chromium", description = "Fetch Playwright and Chromium for the browser test" }
 test = { cmd = "python tools/ultra.py test", depends-on = ["build"], description = "Build, then run the browser test against a local server" }
+
+[feature.publish.dependencies]
+rattler-build = "*"
+
+[feature.publish.tasks]
+publish = { cmd = "python tools/publish.py", description = "Build the conda package and upload it to prefix.dev (needs `pixi auth login prefix.dev --token <API key>` or PREFIX_API_KEY)" }
+
+[environments]
+publish = ["publish"]

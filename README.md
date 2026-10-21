@@ -83,6 +83,8 @@ serve = "ultra serve ."
 
 The package brings in lpython, puts the framework (`ultra.py`, `ui.py`, `ultra.js`, `ui.css`) where `ultra build` finds it, and exposes the tool as the `ultra_tool` module (`from ultra_tool import make_server`).
 
+To publish by hand: `pixi auth login prefix.dev --token <prefix.dev API key>` once, then `pixi run publish` (version `0.1.<commit count>`, channel `codegod100`, or set `PREFIX_CHANNEL`).
+
 ## Performance demos
 
 Two examples exist to stress the runtime, and both show their timings on the page:

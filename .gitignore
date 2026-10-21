@@ -2,3 +2,4 @@ __pycache__/
 *.png
 node_modules/
 .pixi/
+output/
