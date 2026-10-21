@@ -1,5 +1,7 @@
 from lpython import i32, Const
-from ultra import el, end, text, num, cls, cls_if, on_click, button, h1, div, after
+from ultra import el, end, text, num, cls, cls_if, after, div
+from ui import (btn, card_open, card_header, card_content_open, card_footer_open,
+                toggle_group_open, toggle_open, switch_field)
 
 # ---- Msg
 INC: Const[i32] = 1
@@ -37,45 +39,37 @@ def update(msg: i32, arg: i32) -> None:
 
 
 # ---- View
-def step_button(n: i32) -> None:
-    el("button")
-    cls("chip")
-    cls_if("on", step == n)
-    on_click(STEP, n)
+def step_toggle(n: i32) -> None:
+    toggle_open(step == n, STEP, n)
     text("×")
     num(n)
     end()
 
 
 def view() -> None:
-    div("card")
-    h1("Counter")
+    card_open()
+    card_header("Counter", "Elm-style state in LPython, compiled to wasm.")
 
+    card_content_open()
     el("p")
     cls("count")
     cls_if("neg", count < 0)
     num(count)
     end()
-
     div("row")
-    button("−", DEC, 0)
-    button("Reset", RESET, 0)
-    button("+", INC, 0)
+    btn("−", "outline", DEC, 0)
+    btn("Reset", "secondary", RESET, 0)
+    btn("+", "", INC, 0)
+    end()
     end()
 
-    div("row")
-    step_button(1)
-    step_button(5)
-    step_button(10)
+    card_footer_open()
+    toggle_group_open()
+    step_toggle(1)
+    step_toggle(5)
+    step_toggle(10)
     end()
-
-    el("button")
-    cls("ghost")
-    on_click(TOGGLE_AUTO, 0)
-    if auto == 1:
-        text("Stop auto")
-    else:
-        text("Auto-increment")
+    switch_field("Auto-increment", auto == 1, TOGGLE_AUTO, 0)
     end()
 
     end()

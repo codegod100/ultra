@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ultra · Game of Life</title>
+  <link rel="stylesheet" href="ui.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="layout">
     <main id="app"></main>
-    <aside class="hud">
+    <aside class="card hud">
       <div class="fps"><span id="fps">–</span><small>fps</small></div>
       <canvas id="graph" width="260" height="60" aria-label="Frame time history"></canvas>
       <dl>
@@ -19,8 +20,8 @@
         <dt>diff + DOM patch</dt><dd id="t-patch">–</dd>
         <dt>vnodes / frame</dt><dd id="t-nodes">–</dd>
       </dl>
-      <p class="note">Averages over the last second. Every frame steps the board in wasm, rebuilds the whole virtual DOM, diffs it and patches the cells that changed.</p>
-      <p class="badge">LPython → wasm · <a href="https://github.com/codegod100/ultra">ultra</a> · <a href="../bench/">Row benchmark</a></p>
+      <p class="note muted">Averages over the last second. Every frame steps the board in wasm, rebuilds the whole virtual DOM, diffs it and patches the cells that changed.</p>
+      <p class="credit muted">LPython → wasm · <a href="https://github.com/codegod100/ultra">ultra</a> · <a href="../bench/">Row benchmark</a></p>
     </aside>
   </div>
   <script type="module">
@@ -33,12 +34,14 @@
     let win = [], lastEnd = 0, lastShown = 0;
 
     function draw() {
-      const w = g.width, h = g.height, css = getComputedStyle(document.body);
+      const w = g.width, h = g.height;
+      // Theme tokens are light-dark() values, so let CSS resolve them to a colour.
+      const col = (v) => { g.style.color = `var(${v})`; return getComputedStyle(g).color; };
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = css.getPropertyValue("--line");
+      ctx.fillStyle = col("--border");
       const y60 = h - (16.7 / 50) * h;
       ctx.fillRect(0, y60, w, 1);                        // 60 fps line
-      ctx.fillStyle = css.getPropertyValue("--accent");
+      ctx.fillStyle = col("--primary");
       const bw = w / 120;
       hist.forEach((d, i) => {
         const bh = Math.min(h, (d / 50) * h);

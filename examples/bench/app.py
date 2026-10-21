@@ -3,6 +3,7 @@
 from lpython import i32, Const
 from numpy import empty, int32
 from ultra import el, end, text, num, cls, cls_if, attr, key, on_click, div, h1
+from ui import btn_open
 
 # ---- Msg
 RUN: Const[i32] = 1         # replace all rows with arg new ones
@@ -217,10 +218,9 @@ def update(msg: i32, arg: i32) -> None:
 
 
 # ---- View
-def op(id: str, label: str, msg: i32, arg: i32) -> None:
-    el("button")
+def op(id: str, label: str, variant: str, msg: i32, arg: i32) -> None:
+    btn_open(variant, msg, arg)
     attr("id", id)
-    on_click(msg, arg)
     text(label)
     end()
 
@@ -262,10 +262,13 @@ def view_row(i: i32) -> None:
 
 def view() -> None:
     i: i32
-    div("bench")
+    div("card")
+    cls("bench")
     div("head")
     h1("ultra · keyed rows")
     el("span")
+    cls("badge")
+    cls("secondary")
     cls("rows")
     num(n)
     text(" rows")
@@ -273,15 +276,16 @@ def view() -> None:
     end()
 
     div("ops")
-    op("run", "Create 1,000", RUN, 1000)
-    op("runlots", "Create 10,000", RUN, 10000)
-    op("add", "Append 1,000", ADD, 1000)
-    op("update", "Update every 10th", UPDATE, 0)
-    op("swaprows", "Swap rows", SWAP, 0)
-    op("clear", "Clear", CLEAR, 0)
+    op("run", "Create 1,000", "", RUN, 1000)
+    op("runlots", "Create 10,000", "outline", RUN, 10000)
+    op("add", "Append 1,000", "outline", ADD, 1000)
+    op("update", "Update every 10th", "outline", UPDATE, 0)
+    op("swaprows", "Swap rows", "outline", SWAP, 0)
+    op("clear", "Clear", "outline", CLEAR, 0)
     end()
 
     el("table")
+    cls("table")
     el("tbody")
     for i in range(n):
         view_row(i)

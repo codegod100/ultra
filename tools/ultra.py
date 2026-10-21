@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ultra build tool.
 
-  python tools/ultra.py build APP.py... [-o OUT.wasm]   (also copies ultra.js next to it)
+  python tools/ultra.py build APP.py... [-o OUT.wasm]   (also copies ultra.js, ui.css next to it)
   python tools/ultra.py serve [DIR] [--port 8000]
   python tools/ultra.py test                 serve on a free port, run tests/e2e.cjs
 
@@ -218,9 +218,10 @@ def build_app(path, out=None):
         wasm = open(os.path.join(tmp, "app.wasm"), "rb").read()
         with open(out, "wb") as f:
             f.write(fix_global_arrays(wasm, src))
-    # Ship the runtime next to the wasm so the app folder is self-contained and
+    # Ship the runtime and stylesheet next to the wasm so the app folder is self-contained and
     # can be served from any directory.
-    shutil.copy(os.path.join(LIB, "ultra.js"), os.path.join(os.path.dirname(out), "ultra.js"))
+    for f in ("ultra.js", "ui.css"):
+        shutil.copy(os.path.join(LIB, f), os.path.join(os.path.dirname(out), f))
     print(f"built {os.path.relpath(out)} ({os.path.getsize(out)} bytes)")
 
 

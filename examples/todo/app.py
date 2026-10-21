@@ -1,9 +1,11 @@
 from lpython import i32, Const
 from numpy import empty, int32
-from ultra import (el, end, text, text_ref, num, cls, cls_if, attr, key, value_ref,
-                   checked, autofocus, on_click, on_input, on_enter, div, h1,
+from ultra import (el, end, text, text_ref, num, cls, cls_if, attr, key,
+                   autofocus, on_enter, div,
                    s_new, s_dup, s_copy, s_clear, s_free, s_len, s_save_at, s_load_at,
                    store_i32, load_i32, store_i32_at, load_i32_at)
+from ui import (btn, btn_open, checkbox, input_open, tabs_list_open, tab,
+                card_open, card_header, card_content_open, card_footer_open)
 
 # ---- Msg
 INPUT: Const[i32] = 1
@@ -118,15 +120,6 @@ def update(msg: i32, arg: i32) -> None:
 
 
 # ---- View
-def filter_link(label: str, which: i32) -> None:
-    el("button")
-    cls("chip")
-    cls_if("on", show == which)
-    on_click(FILTER, which)
-    text(label)
-    end()
-
-
 def visible(i: i32) -> bool:
     if show == ACTIVE:
         return done[i] == 0
@@ -140,45 +133,33 @@ def view_item(i: i32) -> None:
     key(ids[i])
     cls("item")
     cls_if("done", done[i] == 1)
-
-    el("input")
-    attr("type", "checkbox")
-    checked(done[i] == 1)
-    on_click(TOGGLE, i)
-    end()
-
+    checkbox(done[i] == 1, TOGGLE, i)
     el("label")
     text_ref(texts[i])
     end()
-
-    el("button")
+    btn_open("ghost", DELETE, i)
+    cls("icon")
+    cls("sm")
     cls("x")
     attr("aria-label", "Delete")
-    on_click(DELETE, i)
     text("×")
     end()
-
     end()
 
 
 def view() -> None:
     i: i32
-    div("card")
-    h1("Todos")
+    card_open()
+    card_header("Todos", "Saved in localStorage as you go.")
 
+    card_content_open()
     div("row")
-    el("input")
+    input_open("What needs doing?", draft, INPUT)
     cls("new")
-    attr("placeholder", "What needs doing?")
-    value_ref(draft)
     autofocus()
-    on_input(INPUT)
     on_enter(ADD, 0)
     end()
-    el("button")
-    on_click(ADD, 0)
-    text("Add")
-    end()
+    btn("Add", "", ADD, 0)
     end()
 
     el("ul")
@@ -187,21 +168,24 @@ def view() -> None:
         if visible(i):
             view_item(i)
     end()
+    end()
 
     if n > 0:
-        div("footer")
+        card_footer_open()
+        cls("footer")
         el("span")
+        cls("badge")
+        cls("secondary")
         num(remaining())
         text(" left")
         end()
-        div("row")
-        filter_link("All", ALL)
-        filter_link("Active", ACTIVE)
-        filter_link("Done", DONE)
+        tabs_list_open()
+        tab("All", show == ALL, FILTER, ALL)
+        tab("Active", show == ACTIVE, FILTER, ACTIVE)
+        tab("Done", show == DONE, FILTER, DONE)
         end()
-        el("button")
-        cls("ghost")
-        on_click(CLEAR_DONE, 0)
+        btn_open("ghost", CLEAR_DONE, 0)
+        cls("sm")
         text("Clear done")
         end()
         end()

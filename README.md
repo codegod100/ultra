@@ -27,7 +27,42 @@ def view() -> None:
     end()
 ```
 
-The counter demo compiles to **1.8 KB** of wasm and the todo app to **3.9 KB** (2 KB gzipped).
+The counter example compiles to **3.1 KB** of wasm and the todo app to **5.1 KB** (2.6 KB gzipped), both built with the shadcn-style components below.
+
+## Components (shadcn/ui style)
+
+[shadcn/ui](https://ui.shadcn.com/docs/components) is React + Tailwind + Radix, so it can't run in an ultra app, but its look can. `ultra/ui.css` carries shadcn's neutral theme tokens (`--background`, `--primary`, `--muted-foreground`, `--radius`, …, light and dark) and its component styles as plain CSS, 13 KB (3 KB gzipped). `ultra/ui.py` has view helpers that emit the matching markup and ARIA state:
+
+```python
+from ui import btn, card_open, card_header, card_content_open, switch_field
+
+def view() -> None:
+    card_open()
+    card_header("Counter", "Elm-style state in LPython.")
+    card_content_open()
+    btn("−", "outline", DEC, 0)
+    btn("+", "", INC, 0)
+    switch_field("Auto-increment", auto == 1, TOGGLE_AUTO, 0)
+    end()
+    end()
+```
+
+A helper ending in `_open` leaves its element open for children (close it with `end()`); the rest emit a finished element. Variants are shadcn's names passed as a class: `""` (default), `"secondary"`, `"outline"`, `"ghost"`, `"destructive"`, `"link"`.
+
+| Component | Helpers |
+| --------- | ------- |
+| Button | `btn(label, variant, msg, arg)`, `btn_open(variant, msg, arg)` then `cls("sm" / "lg" / "icon")` |
+| Card | `card_open()`, `card_header(title, desc)`, `card_title(s)`, `card_description(s)`, `card_content_open()`, `card_footer_open()` |
+| Input, Label | `input_open(placeholder, handle, MSG)` (add `on_enter`, `autofocus`), `label(s)` |
+| Badge | `badge(s, variant)`, `badge_num(i, variant)` |
+| Checkbox, Switch | `checkbox(on, msg, arg)`, `switch(on, msg, arg)`; with a clickable label: `check_field(s, on, msg, arg)`, `switch_field(...)` |
+| Tabs | `tabs_list_open()`, `tab(label, active, msg, arg)` |
+| Toggle group | `toggle_group_open()`, `toggle(label, on, msg, arg)`, `toggle_open(on, msg, arg)` |
+| Dialog | `dialog_open(title, desc, CLOSE)` (backdrop click, × and Escape send `CLOSE`), `dialog_footer_open()` |
+| Alert, Progress, Separator, Kbd | `alert(title, desc, variant)`, `progress(value, max)`, `separator()`, `kbd(s)` |
+| Table | plain `el("table")` with `cls("table")`; `aria-selected="true"` on a row highlights it |
+
+Link `ui.css` before your own stylesheet; `build` copies it next to `app.wasm`. Dark mode follows the OS, and `cls("dark")` or `cls("light")` on any element forces it for that subtree. Retheme by overriding the tokens on `:root`. The tokens use CSS `light-dark()`, which needs a 2024-or-later browser. `examples/ui` shows every component, and the other examples are built with them.
 
 ## Performance demos
 
@@ -64,13 +99,13 @@ pixi run serve    # http://localhost:8000/examples/todo/
 
 To build your own app, run `pixi run python tools/ultra.py build path/to/app.py` (it writes `path/to/app.wasm`), or open a shell with the toolchain on `PATH` using `pixi shell`.
 
-Each example folder is self-contained (`index.html`, `app.wasm`, `ultra.js`, `style.css`), and the built files are committed, so you can run a demo without the toolchain by serving its folder with any static server:
+Each example folder is self-contained (`index.html`, `app.wasm`, `ultra.js`, `ui.css`, `style.css`), and the built files are committed, so you can run a demo without the toolchain by serving its folder with any static server:
 
 ```sh
 cd examples/todo && python3 -m http.server     # http://localhost:8000/
 ```
 
-`build` copies `ultra/ultra.js` next to the `.wasm` it writes. A page mounts an app like this:
+`build` copies `ultra/ultra.js` and `ultra/ui.css` next to the `.wasm` it writes. A page mounts an app like this:
 
 ```html
 <main id="app"></main>
@@ -89,7 +124,7 @@ Shorthands: `div(cls)`, `span(cls)`, `h1(s)`, `button(label, msg, arg)`, `label_
 
 **Attributes:** `attr(name, value)`, `attr_num(name, i)`, `attr_ref(name, h)`, `cls(name)`, `cls_if(name, cond)`, `key(i)`, `value_ref(h)`, `checked(cond)`, `autofocus()`.
 
-**Events:** `on_click(msg, arg)`, `on_dblclick(msg, arg)`, `on_enter(msg, arg)`, `on_input(msg)` (sends `update(msg, EVENT)`, with the input's text in string handle `0`).
+**Events:** `on_click(msg, arg)`, `on_dblclick(msg, arg)`, `on_enter(msg, arg)`, `on_escape(msg, arg)`, `on_input(msg)` (sends `update(msg, EVENT)`, with the input's text in string handle `0`).
 
 **Commands:** `after(ms, msg, arg)`, `frame(msg, arg)` (sends the message at the start of the next animation frame, just before `view()`; call it again from `update()` to run an animation loop), `now_ms()`, `log(i)`.
 
@@ -123,11 +158,14 @@ LPython's wasm backend (0.22) is much less complete than its LLVM backend. Here 
 ```
 ultra/ultra.py     LPython API (@jscall declarations + helpers)
 ultra/ultra.js     runtime: loader, vnode builder, keyed diff/patch, events, string store
+ultra/ui.py        shadcn/ui-style component helpers
+ultra/ui.css       shadcn theme tokens (light + dark) and component styles
 tools/ultra.py     build (with boot stub + wasm patch) / serve / test
 pixi.toml          toolchain and tasks (build, serve, test, install-playwright)
 examples/counter   counter with steps and an auto-increment timer (self-contained folder)
 examples/todo      todo list with filters, keyed rows, localStorage persistence
 examples/bench     js-framework-benchmark style keyed table with an in-page timing suite
 examples/life      Game of Life animation, up to 22,500 DOM cells per frame, FPS readout
+examples/ui        component gallery: buttons, card, form controls, tabs, dialog, table, theme switch
 tests/e2e.cjs      Playwright smoke test
 ```

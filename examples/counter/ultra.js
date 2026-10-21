@@ -123,6 +123,7 @@ export async function mount(root, url, opts = {}) {
     on_dblclick: (m, a) => setEv("dblclick", [m, a]),
     on_input: (m) => setEv("input", [m, EVENT]),
     on_enter: (m, a) => setEv("enter", [m, a]),
+    on_escape: (m, a) => setEv("escape", [m, a]),
 
     after: (ms, m, a) => setTimeout(() => dispatch(m, a), ms),
     frame: (m, a) => { frameQ.push(m, a); schedule(); },
@@ -377,6 +378,7 @@ export async function mount(root, url, opts = {}) {
   on("dblclick", "dblclick");
   on("input", "input");
   on("keydown", "enter", (e) => e.key === "Enter" && !e.isComposing);
+  on("keydown", "escape", (e) => e.key === "Escape");
 
   // Run module-level code (which calls init()), then first render.
   ex.__main__global_stmts();

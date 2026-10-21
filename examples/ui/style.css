@@ -1,0 +1,9 @@
+/* Page layout only; the components come from ui.css. */
+.page { min-height: 100vh; padding: 24px 16px; }
+.top { max-width: 1040px; margin: 0 auto 24px; display: flex; flex-wrap: wrap; gap: 12px;
+       justify-content: space-between; align-items: center; }
+h1 { margin: 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em; }
+.grid { max-width: 1040px; margin: 0 auto; display: grid; gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); align-items: start; }
+.table tbody tr { cursor: pointer; }
+.tabs-list + p { margin: 1rem 0 0; }

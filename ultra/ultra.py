@@ -107,6 +107,11 @@ def on_enter(msg: i32, arg: i32) -> None:
 def on_dblclick(msg: i32, arg: i32) -> None:
     pass
 
+@jscall
+def on_escape(msg: i32, arg: i32) -> None:
+    """update(msg, arg) when Escape is pressed while focus is inside the element."""
+    pass
+
 # ---------------------------------------------------------------- commands
 
 @jscall

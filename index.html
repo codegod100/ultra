@@ -4,19 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ultra</title>
-  <link rel="stylesheet" href="examples/counter/style.css">
+  <link rel="stylesheet" href="ultra/ui.css">
+  <style>
+    body { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+    .card { width: min(440px, 100%); }
+    .links { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    a.btn { text-decoration: none; }
+  </style>
 </head>
 <body>
   <main class="card">
-    <h1>ultra</h1>
-    <p style="margin:0">Elm-style frontend framework. Apps are written in LPython and compiled to WebAssembly.</p>
-    <div class="row">
-      <a href="examples/counter/"><button style="width:100%">Counter</button></a>
-      <a href="examples/todo/"><button style="width:100%">Todos</button></a>
+    <div class="card-header">
+      <h3 class="card-title">ultra</h3>
+      <p class="card-description">Elm-style frontend framework. Apps are written in LPython and compiled to WebAssembly.</p>
     </div>
-    <div class="row">
-      <a href="examples/bench/"><button style="width:100%">Row benchmark</button></a>
-      <a href="examples/life/"><button style="width:100%">Game of Life</button></a>
+    <div class="card-content links">
+      <a class="btn outline" href="examples/counter/">Counter</a>
+      <a class="btn outline" href="examples/todo/">Todos</a>
+      <a class="btn outline" href="examples/bench/">Row benchmark</a>
+      <a class="btn outline" href="examples/life/">Game of Life</a>
+    </div>
+    <div class="card-footer">
+      <a class="btn" style="width:100%" href="examples/ui/">Components</a>
     </div>
   </main>
 </body>

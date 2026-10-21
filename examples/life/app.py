@@ -3,6 +3,7 @@
 from lpython import i32, Const
 from numpy import empty, int32
 from ultra import el, end, text, num, cls, cls_if, attr, on_click, frame, div, h1
+from ui import btn_open, toggle, toggle_group_open
 
 # ---- Msg
 TICK: Const[i32] = 1
@@ -187,17 +188,13 @@ def shade(a: i32) -> str:
 
 
 def size_chip(label: str, s: i32) -> None:
-    el("button")
-    cls("chip")
-    cls_if("on", side == s)
-    on_click(SIZE, s)
-    text(label)
-    end()
+    toggle(label, side == s, SIZE, s)
 
 
 def view() -> None:
     i: i32
-    div("life")
+    div("card")
+    cls("life")
     div("head")
     h1("ultra · Game of Life")
     el("span")
@@ -213,35 +210,31 @@ def view() -> None:
     end()
 
     div("ops")
-    el("button")
+    btn_open("", PLAY, 0)
     attr("id", "play")
-    cls("primary")
-    on_click(PLAY, 0)
     if running == 1:
         text("Pause")
     else:
         text("Play")
     end()
-    el("button")
+    btn_open("outline", STEP, 0)
     attr("id", "step")
-    on_click(STEP, 0)
     text("Step")
     end()
-    el("button")
-    on_click(RANDOM, 0)
+    btn_open("outline", RANDOM, 0)
     text("Random")
     end()
-    el("button")
-    on_click(GUN, 0)
+    btn_open("outline", GUN, 0)
     text("Glider guns")
     end()
-    el("button")
-    on_click(CLEAR, 0)
+    btn_open("outline", CLEAR, 0)
     text("Clear")
     end()
+    toggle_group_open()
     size_chip("50²", 50)
     size_chip("100²", 100)
     size_chip("150²", 150)
+    end()
     end()
 
     div("grid")
