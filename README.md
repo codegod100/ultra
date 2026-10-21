@@ -64,6 +64,25 @@ A helper ending in `_open` leaves its element open for children (close it with `
 
 Link `ui.css` before your own stylesheet; `build` copies it next to `app.wasm`. Dark mode follows the OS, and `cls("dark")` or `cls("light")` on any element forces it for that subtree. Retheme by overriding the tokens on `:root`. The tokens use CSS `light-dark()`, which needs a 2024-or-later browser. `examples/ui` shows every component, and the other examples are built with them.
 
+
+## Using ultra from another project
+
+ultra is published as a conda package on the `codegod100` anaconda.org channel (built by `.github/workflows/conda.yml` from `recipe/` on every push to main). In a pixi project:
+
+```toml
+[workspace]
+channels = ["conda-forge", "codegod100"]
+
+[dependencies]
+ultra = "*"
+
+[tasks]
+build = "ultra build app.py"     # writes app.wasm, ultra.js, ui.css next to app.py
+serve = "ultra serve ."
+```
+
+The package brings in lpython, puts the framework (`ultra.py`, `ui.py`, `ultra.js`, `ui.css`) where `ultra build` finds it, and exposes the tool as the `ultra_tool` module (`from ultra_tool import make_server`).
+
 ## Performance demos
 
 Two examples exist to stress the runtime, and both show their timings on the page:

@@ -8,6 +8,9 @@
 Run it through pixi (`pixi run build`, `pixi run serve`, `pixi run test`),
 which provides lpython and node from conda-forge.
 
+The conda package (recipe/) installs this file as the `ultra_tool` module, with
+the framework files in ultra_tool/lib, and an `ultra` command for build/serve.
+
 `build` appends a small boot stub to the app so LPython keeps update()/view()
 (its wasm backend only emits functions reachable from module-level code) and
 runs init() at load time. It also patches around an LPython 0.22 wasm bug
@@ -25,8 +28,10 @@ import sys
 import tempfile
 import threading
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIB = os.path.join(ROOT, "ultra")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+# Installed package: ultra_tool/lib. Repo checkout: ultra/ next to tools/.
+LIB = os.path.join(HERE, "lib") if os.path.isdir(os.path.join(HERE, "lib")) else os.path.join(ROOT, "ultra")
 
 BOOT = """
 
@@ -264,7 +269,7 @@ def main():
     b.add_argument("-o")
     b.set_defaults(fn=build)
     s = sub.add_parser("serve")
-    s.add_argument("dir", nargs="?", default=ROOT)
+    s.add_argument("dir", nargs="?", default=".")
     s.add_argument("--port", type=int, default=8000)
     s.set_defaults(fn=serve)
     sub.add_parser("test").set_defaults(fn=test)

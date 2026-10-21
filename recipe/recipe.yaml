@@ -1,0 +1,50 @@
+context:
+  version: ${{ env.get("ULTRA_VERSION", default="0.1.0") }}
+
+package:
+  name: ultra
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  noarch: python
+  script:
+    - mkdir -p $SP_DIR/ultra_tool/lib
+    - cp tools/ultra.py $SP_DIR/ultra_tool/__init__.py
+    - cp ultra/ultra.py ultra/ui.py ultra/ultra.js ultra/ui.css $SP_DIR/ultra_tool/lib/
+  python:
+    entry_points:
+      - ultra = ultra_tool:main
+
+requirements:
+  host:
+    - python >=3.9
+  run:
+    - python >=3.9
+    - lpython 0.22.*
+
+tests:
+  - python:
+      imports:
+        - ultra_tool
+      pip_check: false
+  - files:
+      source:
+        - examples/counter/app.py
+    script:
+      - ultra build examples/counter/app.py
+      - test -s examples/counter/app.wasm
+      - test -s examples/counter/ultra.js
+      - test -s examples/counter/ui.css
+      - python -c "from ultra_tool import make_server; make_server('.', 0, quiet=True).server_close()"
+
+about:
+  homepage: https://github.com/codegod100/ultra
+  repository: https://github.com/codegod100/ultra
+  summary: Elm-style frontend framework, LPython apps compiled to WebAssembly
+  description: |
+    Provides the `ultra` command (build, serve) and the framework files
+    (ultra.py, ui.py, ultra.js, ui.css) used by `ultra build`.

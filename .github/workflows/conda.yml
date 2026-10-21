@@ -1,0 +1,47 @@
+name: conda package
+
+# Builds the `ultra` conda package (recipe/recipe.yaml) and uploads it to the
+# anaconda.org channel named by the ANACONDA_OWNER repo variable (default codegod100).
+# Upload needs the ANACONDA_API_KEY repo secret; without it the package is built,
+# tested and kept as a workflow artifact only.
+# Version is 0.1.<commit count>, so every push to main gets a new one.
+
+on:
+  push:
+    branches: [main]
+    paths: ["ultra/**", "tools/ultra.py", "recipe/**", ".github/workflows/conda.yml"]
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      ANACONDA_OWNER: ${{ vars.ANACONDA_OWNER || 'codegod100' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install rattler-build
+        run: |
+          curl -fsSL -o /usr/local/bin/rattler-build \
+            https://github.com/prefix-dev/rattler-build/releases/latest/download/rattler-build-x86_64-unknown-linux-musl
+          chmod +x /usr/local/bin/rattler-build
+          rattler-build --version
+      - name: Build and test
+        run: |
+          export ULTRA_VERSION="0.1.$(git rev-list --count HEAD)"
+          echo "version $ULTRA_VERSION"
+          rattler-build build -r recipe/recipe.yaml -c conda-forge --output-dir out --log-style plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ultra-conda
+          path: out/noarch/*.conda
+      - name: Upload to anaconda.org
+        env:
+          ANACONDA_API_KEY: ${{ secrets.ANACONDA_API_KEY }}
+        run: |
+          if [ -z "$ANACONDA_API_KEY" ]; then
+            echo "::warning::ANACONDA_API_KEY secret not set, skipping upload"
+            exit 0
+          fi
+          rattler-build upload anaconda -o "$ANACONDA_OWNER" out/noarch/*.conda
