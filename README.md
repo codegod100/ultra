@@ -94,23 +94,7 @@ In headless Chromium on a 4-core cloud VM, ultra's own work (wasm + diff + patch
 
 ## Android launcher
 
-`examples/launcher` is an Android home screen written as an ultra app. The home starts blank with a clock: long-press it to add apps (the drawer opens in a pick mode) or widgets, and long-press anything on it to move or remove it. Swipe down for the drawer with every app and a search (Enter opens the first match); long-press an app there to put it on the home screen, and swipe up to close it. The layout is saved in localStorage.
-
-`android/` is a small native shell (one Java file, no dependencies) that serves that folder to a transparent WebView over the wallpaper and answers four dynamic URLs:
-
-- `apps.json` lists every launchable activity from `LauncherApps`, sorted by label, and `icon?c=pkg/cls` renders one's icon to a PNG.
-- `widgets.json` lists the installed widget providers, and `wicon?p=pkg/cls` renders one's icon.
-
-Widgets are real `AppWidgetHostView`s in a layer above the WebView: after each render the page reports where its widget slots are, and the shell moves the views there (and hides them while the drawer or a menu covers the home screen). Adding one runs Android's bind-permission and configure screens when the widget needs them. The app's own `@jscall` imports (`launch`, `app_info`, `add_widget`, `remove_widget`, `haptic`, …) go to a `window.Android` JavaScript interface, and the shell sends package changes, the home button, back, resume, new widgets and long presses on widgets back to the page as messages.
-
-Install it from the [`launcher-latest` release](https://github.com/codegod100/ultra/releases/tag/launcher-latest), which CI rebuilds on every push that touches the launcher. Open it once, press Home, and pick **ultra Home** as the default. To build it yourself you need JDK 17 and the Android SDK:
-
-```sh
-pixi run build                      # rebuilds examples/launcher/app.wasm
-cd android && ./gradlew assembleDebug   # android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-In a desktop browser, `examples/launcher/` runs against demo `apps.json` and `widgets.json` files, shows a toast instead of launching, and draws widgets as labelled placeholders. Click the bar at the top to open the drawer.
+The Android home-screen launcher built with ultra now lives in its own repository, [codegod100/launcher](https://github.com/codegod100/launcher). Its APK is published as that repo's [`launcher-latest` release](https://github.com/codegod100/launcher/releases/tag/launcher-latest).
 
 ## The architecture
 
