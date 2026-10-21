@@ -112,6 +112,12 @@ def on_escape(msg: i32, arg: i32) -> None:
     """update(msg, arg) when Escape is pressed while focus is inside the element."""
     pass
 
+@jscall
+def on_longpress(msg: i32, arg: i32) -> None:
+    """update(msg, arg) when a pointer is held still on the element for 500 ms.
+    The click that ends the press is not delivered."""
+    pass
+
 # ---------------------------------------------------------------- commands
 
 @jscall
